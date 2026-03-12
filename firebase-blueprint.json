@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user preferences for news reports.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "User's email for delivery" },
+        "topics": { "type": "array", "items": { "type": "string" }, "description": "Preferred news topics" },
+        "deliveryTime": { "type": "string", "description": "Preferred time for daily report" },
+        "lastReportDate": { "type": "string", "description": "Date of the last generated report" },
+        "reportLength": { "type": "string", "enum": ["Concise", "Standard", "Comprehensive"], "description": "Preferred length of the report" },
+        "dataPoints": { "type": "array", "items": { "type": "string" }, "description": "Specific data points to include in reports" },
+        "analyticalFramework": { "type": "string", "enum": ["PESTEL", "SWOT", "Porter's Five Forces", "None"], "description": "Preferred analytical framework for reports" }
+      },
+      "required": ["uid", "email"]
+    },
+    "NewsReport": {
+      "title": "News Report",
+      "description": "A generated high-end news report.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "The user who owns this report" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "content": { "type": "string", "description": "Markdown content of the report" },
+        "sentimentScore": { "type": "number" },
+        "riskLevel": { "type": "string", "enum": ["Low", "Medium", "High"] },
+        "imageUrl": { "type": "string" },
+        "keyMetrics": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "value": { "type": "string" },
+              "trend": { "type": "string", "enum": ["up", "down", "neutral"] }
+            }
+          }
+        },
+        "articleSummaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "summary": { "type": "string" }
+            }
+          }
+        },
+        "marketTrendData": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string" },
+              "value": { "type": "number" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "sources": { "type": "array", "items": { "type": "string" }, "description": "Source URLs used for the report" }
+      },
+      "required": ["userId", "title", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User settings and preferences"
+    },
+    "/reports/{reportId}": {
+      "schema": "NewsReport",
+      "description": "Historical news reports"
+    }
+  }
+}
