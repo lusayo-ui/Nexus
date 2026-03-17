@@ -34,7 +34,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: user.email,
               topics: ["Global Economy", "Geopolitics", "Technology"],
               deliveryTime: "08:00",
-              lastReportDate: null
+              lastReportDate: null,
+              followedEntities: [],
+              prioritizedDataPoints: [],
+              theme: 'light'
             };
             setDoc(userDocRef, newProfile).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`));
             setProfile(newProfile);

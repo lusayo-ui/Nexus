@@ -2,6 +2,28 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// Deep strip HTML and fix literal \n from all string fields
+const stripHtml = (obj: any): any => {
+  if (typeof obj === 'string') {
+    // Replace literal \n strings and handle HTML stripping
+    return obj
+      .replace(/<\/?[^>]+(>|$)/g, "")
+      .replace(/\\n/g, '\n')
+      .replace(/\s*\\n\s*/g, '\n');
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(stripHtml);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key in obj) {
+      newObj[key] = stripHtml(obj[key]);
+    }
+    return newObj;
+  }
+  return obj;
+};
+
 const NEXUS_SYSTEM_PROMPT = `
 ════════════════════════════════════════════════════════════════════
 NEXUS — GLOBAL BUSINESS INTELLIGENCE SYSTEM
@@ -293,6 +315,8 @@ FORMATTING:
 - DO NOT USE ANY HTML TAGS.
 - USE MARKDOWN HEADERS (#, ##, ###) FOR STRUCTURE.
 - USE BOLD (**text**) AND ITALICS (*text*) FOR EMPHASIS.
+- NEVER output literal '\n' strings. Use actual newline characters for paragraph separation.
+- Ensure paragraphs are separated by exactly two newline characters for clear Markdown rendering.
 
 REPORT ACTIVATION HEADER:
 ◈ NEXUS GLOBAL BUSINESS INTELLIGENCE REPORT
@@ -313,6 +337,9 @@ export interface ReportOptions {
   length?: 'Concise' | 'Standard' | 'Comprehensive';
   dataPoints?: string[];
   analyticalFramework?: 'PESTEL' | 'SWOT' | "Porter's Five Forces" | 'None';
+  sector?: string;
+  region?: string;
+  role?: string;
 }
 
 export async function generateNexusReport(
@@ -435,25 +462,6 @@ export async function generateNexusReport(
     });
 
     const data = JSON.parse(response.text);
-    
-    // Deep strip HTML from all string fields
-    const stripHtml = (obj: any): any => {
-      if (typeof obj === 'string') {
-        return obj.replace(/<\/?[^>]+(>|$)/g, "");
-      }
-      if (Array.isArray(obj)) {
-        return obj.map(stripHtml);
-      }
-      if (obj !== null && typeof obj === 'object') {
-        const newObj: any = {};
-        for (const key in obj) {
-          newObj[key] = stripHtml(obj[key]);
-        }
-        return newObj;
-      }
-      return obj;
-    };
-
     const cleanData = stripHtml(data);
 
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map(c => c.web?.uri).filter(Boolean) as string[] || [];
@@ -559,6 +567,409 @@ export async function generateDeltaReport(reportA: any, reportB: any) {
   }
 }
 
+export async function askMeridian(reportContent: string, question: string) {
+  const model = "gemini-3.1-pro-preview";
+  
+  const prompt = `
+    You are MERIDIAN, a high-level intelligence assistant. 
+    Interrogate the following intelligence report to answer the user's question.
+    
+    REPORT CONTENT:
+    ${reportContent}
+    
+    USER QUESTION:
+    ${question}
+    
+    Provide a sophisticated, institutional-grade response. Focus on second-order effects, strategic implications, and actionable insights.
+    Use clean Markdown for formatting.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error in Ask Meridian:", error);
+    throw error;
+  }
+}
+
+export async function generateRegionalBrief(countryCode: string) {
+  const model = "gemini-3.1-pro-preview";
+  
+  const prompt = `
+    Generate a concise, high-impact regional intelligence brief for the country with ISO code: ${countryCode}.
+    
+    Include:
+    1. **Current Risk Profile**: Political, economic, and social stability.
+    2. **Key Strategic Developments**: Recent events impacting the region.
+    3. **Market Transmission**: How regional shifts are affecting global markets.
+    4. **Outlook**: 30-day forecast.
+    
+    Use professional intelligence tone. Clean Markdown only.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error generating regional brief:", error);
+    throw error;
+  }
+}
+
+export async function generateStrategicCountdownBrief(eventName: string) {
+  const model = "gemini-3.1-pro-preview";
+  
+  const prompt = `
+    Generate a strategic briefing for the upcoming event: ${eventName}.
+    
+    Analyze:
+    1. **Expected Outcomes**: Most likely scenarios.
+    2. **Market Volatility Potential**: Which assets are most at risk.
+    3. **Strategic Positioning**: How institutional investors should prepare.
+    4. **Tail Risks**: Low-probability, high-impact outcomes.
+    
+    Style: Obsidian + Gold aesthetic (metaphorically in tone), sophisticated, institutional.
+    Clean Markdown only.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error generating countdown brief:", error);
+    throw error;
+  }
+}
+
+export async function generateWeeklyDebrief(reports: any[]) {
+  const model = "gemini-3.1-pro-preview";
+  
+  const reportsContext = reports.map(r => `Title: ${r.title}\nSummary: ${r.summary}`).join("\n\n");
+  
+  const prompt = `
+    Generate a WEEKLY DEBRIEF ESSAY recapping the intelligence cycle of the past week.
+    
+    CONTEXT (Last 7 days of reports):
+    ${reportsContext}
+    
+    Your task is to write a 500-word narrative essay that recaps the week. 
+    It should be a record of history in real time — something worth saving and re-reading a year from now.
+    Focus on the "Grand Narrative" — how individual events are coalescing into larger structural shifts.
+    
+    Style:
+    - Literary, sophisticated, historical.
+    - Narrative-driven, not bulleted.
+    - Institutional-grade analysis.
+    - Clean Markdown only.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: { type: Type.STRING, description: "The 500-word narrative essay." },
+            sentimentScore: { type: Type.NUMBER },
+            keyThemes: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["title", "content", "sentimentScore", "keyThemes"]
+        }
+      }
+    });
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Error generating weekly debrief:", error);
+    throw error;
+  }
+}
+
+export async function generateCatchUpBrief(reports: any[], mandate: { sector: string; region: string; role: string }) {
+  const model = "gemini-3.1-pro-preview";
+  
+  const reportsContext = reports.map(r => `Title: ${r.title}\nSummary: ${r.summary}`).join("\n\n");
+  
+  const prompt = `
+    Generate a personalized "WHAT YOU MISSED" catch-up brief.
+    
+    USER MANDATE:
+    - Sector: ${mandate.sector}
+    - Region: ${mandate.region}
+    - Role: ${mandate.role}
+    
+    INTELLIGENCE CONTEXT (Reports since user was last active):
+    ${reportsContext}
+    
+    Your task is to write a concise, high-impact summary of exactly what changed in the user's focus areas based on their mandate.
+    Zero guilt, maximum efficiency. Tell them what they need to know to be fully briefed for their next meeting.
+    
+    Style:
+    - Direct, executive, high-density.
+    - Focus on "The Delta" — what is different now vs 3 days ago.
+    - Clean Markdown only.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: { type: Type.STRING },
+            criticalAlerts: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["title", "content", "criticalAlerts"]
+        }
+      }
+    });
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Error generating catch-up brief:", error);
+    throw error;
+  }
+}
+
+export async function generateAssetSummary(assetName: string, assetType: 'Story Arc' | 'Entity' | 'Market Signal') {
+  const model = "gemini-3.1-pro-preview";
+  
+  const prompt = `
+    Generate a concise yet comprehensive intelligence summary for the following ${assetType}: ${assetName}.
+    
+    The summary should be structured as follows:
+    1. **Overview**: A 2-3 sentence description of the ${assetType}.
+    2. **Strategic Significance**: Why this matters in the current global landscape (concise).
+    3. **Latest News & Analysis**: A synthesis of the most recent developments (last 30 days).
+    4. **Risk Assessment**: Key threats or volatility (bullet points).
+    5. **Outlook**: 6-month projection (1-2 sentences).
+    
+    Style: Sophisticated, institutional-grade, high-density intelligence.
+    Format: Clean Markdown only. Keep it under 300 words.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+    return response.text;
+  } catch (error) {
+    console.error(`Error generating summary for ${assetName}:`, error);
+    throw error;
+  }
+}
+
+export async function generateAggregatedReport(feedData: any[]) {
+  const model = "gemini-3.1-pro-preview";
+  
+  const context = feedData.map(f => `Source: ${f.source}\nArticles:\n${f.items.map((i: any) => `- ${i.title}: ${i.contentSnippet}`).join("\n")}`).join("\n\n");
+  
+  const prompt = `
+    Generate a LIVE SOURCE AGGREGATION REPORT.
+    
+    INPUT DATA (Latest articles from Reuters, AP, FT, Bloomberg, etc.):
+    ${context}
+    
+    Your task is to read every article and distill the entire news cycle into a single synthesized NEXUS report.
+    Follow the standard NEXUS 12-section framework.
+    Ensure every analytical claim is anchored in the specific articles provided.
+    
+    Style:
+    - Institutional, high-authority.
+    - 50/50 news-to-analysis ratio.
+    - Clean Markdown only.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: NEXUS_SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            summary: { type: Type.STRING },
+            content: { type: Type.STRING },
+            sentimentScore: { type: Type.NUMBER },
+            riskLevel: { type: Type.STRING, enum: ["Low", "Medium", "High"] },
+            keyMetrics: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  label: { type: Type.STRING },
+                  value: { type: Type.STRING },
+                  trend: { type: Type.STRING, enum: ["up", "down", "neutral"] }
+                },
+                required: ["label", "value", "trend"]
+              }
+            },
+            articleSummaries: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  summary: { type: Type.STRING }
+                },
+                required: ["title", "summary"]
+              }
+            },
+            marketTrendData: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  date: { type: Type.STRING },
+                  value: { type: Type.NUMBER }
+                },
+                required: ["date", "value"]
+              }
+            },
+            imagePrompt: { type: Type.STRING },
+            geopoliticalRisk: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  countryCode: { type: Type.STRING },
+                  riskScore: { type: Type.NUMBER },
+                  sentiment: { type: Type.NUMBER },
+                  description: { type: Type.STRING }
+                },
+                required: ["countryCode", "riskScore", "sentiment"]
+              }
+            },
+            entities: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  type: { type: Type.STRING, enum: ["Organization", "Person", "Event", "Location", "Technology"] },
+                  connections: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        target: { type: Type.STRING },
+                        relationship: { type: Type.STRING }
+                      },
+                      required: ["target", "relationship"]
+                    }
+                  }
+                },
+                required: ["name", "type", "connections"]
+              }
+            }
+          },
+          required: ["title", "summary", "content", "sentimentScore", "riskLevel", "keyMetrics", "articleSummaries", "marketTrendData", "imagePrompt", "geopoliticalRisk", "entities"]
+        }
+      }
+    });
+
+    const data = JSON.parse(response.text);
+    const imageUrl = await generateReportImage(data.imagePrompt);
+
+    return {
+      ...data,
+      imageUrl,
+      reportType: 'nexus',
+      sources: feedData.map(f => f.source)
+    };
+  } catch (error) {
+    console.error("Error generating aggregated report:", error);
+    throw error;
+  }
+}
+
+export async function generateStoryArcsFromFeeds(feedData: any[]) {
+  const model = "gemini-3.1-pro-preview";
+  
+  const context = feedData.map(f => `Source: ${f.source}\nArticles:\n${f.items.map((i: any) => `- ${i.title}: ${i.contentSnippet}`).join("\n")}`).join("\n\n");
+  
+  const prompt = `
+    Analyze the following global news headlines and group them into 5-7 major "Story Arcs" (narrative threads).
+    
+    INPUT DATA:
+    ${context}
+    
+    For each Story Arc, provide:
+    1. A compelling title.
+    2. A category (e.g., Geopolitics, Technology, Macroeconomy, Energy).
+    3. A 2-3 sentence summary of the current state of this narrative.
+    4. A priority level (High, Medium, Low).
+    5. Whether it is currently "Active" (rapidly evolving).
+    6. An estimated "Update Count" (how many related stories have broken recently).
+    
+    Return the data as a JSON array of StoryArc objects.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              title: { type: Type.STRING },
+              category: { type: Type.STRING },
+              summary: { type: Type.STRING },
+              date: { type: Type.STRING, description: "Today's date in 'MMM dd, yyyy' format" },
+              updateCount: { type: Type.NUMBER },
+              priority: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
+              isActive: { type: Type.BOOLEAN }
+            },
+            required: ["id", "title", "category", "summary", "date", "updateCount", "priority", "isActive"]
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Error generating story arcs:", error);
+    return []; // Return empty array on failure
+  }
+}
+
 export async function generatePremiumReport(
   topics: string[] = ["Global Economy", "Monetary Policy", "Equity Markets"],
   options: ReportOptions = {}
@@ -576,6 +987,9 @@ export async function generatePremiumReport(
     - Report Length: ${length}
     - Specific Data Points: ${dataPoints.length > 0 ? dataPoints.join(", ") : "Standard executive metrics"}
     - Analytical Framework: ${analyticalFramework !== 'None' ? `Structure the analysis using the ${analyticalFramework} framework.` : "Standard Bloomberg-style analysis"}
+    ${options.sector ? `- Target Sector: ${options.sector}` : ""}
+    ${options.region ? `- Target Region: ${options.region}` : ""}
+    ${options.role ? `- Target Executive Role: ${options.role}` : ""}
     
     The report must include:
     1. **Market Pulse**: A concise summary of the most critical global shifts.
@@ -685,25 +1099,6 @@ export async function generatePremiumReport(
     });
 
     const data = JSON.parse(response.text);
-    
-    // Deep strip HTML from all string fields
-    const stripHtml = (obj: any): any => {
-      if (typeof obj === 'string') {
-        return obj.replace(/<\/?[^>]+(>|$)/g, "");
-      }
-      if (Array.isArray(obj)) {
-        return obj.map(stripHtml);
-      }
-      if (obj !== null && typeof obj === 'object') {
-        const newObj: any = {};
-        for (const key in obj) {
-          newObj[key] = stripHtml(obj[key]);
-        }
-        return newObj;
-      }
-      return obj;
-    };
-
     const cleanData = stripHtml(data);
 
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map(c => c.web?.uri).filter(Boolean) as string[] || [];

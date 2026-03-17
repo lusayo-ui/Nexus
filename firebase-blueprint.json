@@ -12,7 +12,8 @@
         "lastReportDate": { "type": "string", "description": "Date of the last generated report" },
         "reportLength": { "type": "string", "enum": ["Concise", "Standard", "Comprehensive"], "description": "Preferred length of the report" },
         "dataPoints": { "type": "array", "items": { "type": "string" }, "description": "Specific data points to include in reports" },
-        "analyticalFramework": { "type": "string", "enum": ["PESTEL", "SWOT", "Porter's Five Forces", "None"], "description": "Preferred analytical framework for reports" }
+        "analyticalFramework": { "type": "string", "enum": ["PESTEL", "SWOT", "Porter's Five Forces", "None"], "description": "Preferred analytical framework for reports" },
+        "theme": { "type": "string", "enum": ["light", "dark"], "description": "Preferred interface theme" }
       },
       "required": ["uid", "email"]
     },
@@ -61,7 +62,32 @@
           }
         },
         "createdAt": { "type": "string", "format": "date-time" },
-        "sources": { "type": "array", "items": { "type": "string" }, "description": "Source URLs used for the report" }
+        "sources": { "type": "array", "items": { "type": "string" }, "description": "Source URLs used for the report" },
+        "geopoliticalRisk": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "countryCode": { "type": "string" },
+              "riskScore": { "type": "number" },
+              "sentiment": { "type": "number" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "connections": { "type": "array" }
+            }
+          }
+        },
+        "reportType": { "type": "string", "enum": ["traditional", "nexus"] },
+        "imagePrompt": { "type": "string" }
       },
       "required": ["userId", "title", "content", "createdAt"]
     }
